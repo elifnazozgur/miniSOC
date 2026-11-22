@@ -45,3 +45,60 @@ def detect_brute_force(
             })
 
     return alerts
+
+def detect_password_spraying(
+    events: list[SecurityEvent],
+    threshold: int = 5,
+    window_minutes: int = 10
+):
+
+    if threshold < 1 or window_minutes < 1:
+        raise ValueError("Threshold and window must be positive")
+
+    attempts = defaultdict(deque)
+    alerts = []
+
+    events = sorted(events, key=lambda event: event.timestamp)
+
+    for event in events:
+        if event.action != "ssh_login":
+            continue
+
+        if event.outcome != "failure":
+            continue
+
+        key = (event.hostname, event.source_ip)
+        window = attempts[key]
+
+        cutoff = event.timestamp - timedelta(minutes=window_minutes)
+
+        while window and window[0][0] < cutoff:
+            window.popleft()
+
+        previous_users = {
+            username for _, username in window
+        }
+
+        window.append((event.timestamp, event.username))
+
+        unique_users = {
+            username for _, username in window
+        }
+
+        if (
+            len(previous_users) < threshold
+            and len(unique_users) >= threshold
+        ):
+            alerts.append({
+                "rule": "R2",
+                "source_ip": event.source_ip,
+                "hostname": event.hostname,
+                "timestamp": event.timestamp.isoformat(),
+                "distinct_users": len(unique_users),
+            })
+
+    return alerts
+
+
+
+    return alerts
