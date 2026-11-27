@@ -52,6 +52,19 @@ def detect_password_spraying(
     window_minutes: int = 10
 ):
 
+    return detect_distinct_failures(events, threshold, window_minutes, "R2")
+
+
+def detect_invalid_user_burst(
+    events: list[SecurityEvent], threshold: int = 5, window_minutes: int = 5
+) -> list[dict]:
+    invalid = [event for event in events if event.user_exists is False]
+    return detect_distinct_failures(invalid, threshold, window_minutes, "R3")
+
+
+def detect_distinct_failures(
+    events: list[SecurityEvent], threshold: int, window_minutes: int, rule: str
+) -> list[dict]:
     if threshold < 1 or window_minutes < 1:
         raise ValueError("Threshold and window must be positive")
 
@@ -90,7 +103,7 @@ def detect_password_spraying(
             and len(unique_users) >= threshold
         ):
             alerts.append({
-                "rule": "R2",
+                "rule": rule,
                 "source_ip": event.source_ip,
                 "hostname": event.hostname,
                 "timestamp": event.timestamp.isoformat(),
@@ -105,7 +118,7 @@ def detect_success_after_brute_force(
     brute_force_alerts: list[dict],
     window_minutes: int = 10,
 ) -> list[dict]:
-    """Detect R3: the first later success after R1 for the same host, IP and user."""
+    """Detect R4: the first later success after R1 for the same host, IP and user."""
     if window_minutes < 1:
         raise ValueError("window_minutes must be positive")
 
@@ -132,11 +145,37 @@ def detect_success_after_brute_force(
             trigger = times.popleft()
         if trigger is not None and event.timestamp - trigger <= duration:
             alerts.append({
-                "rule": "R3",
+                "rule": "R4",
                 "hostname": event.hostname,
                 "source_ip": event.source_ip,
                 "username": event.username,
                 "timestamp": event.timestamp.isoformat(),
                 "trigger_timestamp": trigger.isoformat(),
             })
+    return alerts
+
+
+def detect_new_source(
+    events: list[SecurityEvent], minimum_known_sources: int = 1
+) -> list[dict]:
+    """Flag first successful use of a source after a host/account has history."""
+    if minimum_known_sources < 1:
+        raise ValueError("minimum_known_sources must be positive")
+
+    known_sources = defaultdict(set)
+    alerts = []
+    for event in sorted(events, key=lambda item: item.timestamp):
+        if event.action != "ssh_login" or event.outcome != "success":
+            continue
+        sources = known_sources[event.hostname, event.username]
+        if len(sources) >= minimum_known_sources and event.source_ip not in sources:
+            alerts.append({
+                "rule": "R5",
+                "hostname": event.hostname,
+                "source_ip": event.source_ip,
+                "username": event.username,
+                "timestamp": event.timestamp.isoformat(),
+                "known_sources": len(sources),
+            })
+        sources.add(event.source_ip)
     return alerts

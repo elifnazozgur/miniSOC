@@ -1,0 +1,25 @@
+R1:
+  title: Repeated SSH failures for one account
+  logsource: {product: linux, service: sshd}
+  tags: [attack.t1110.001]
+  detection: {threshold: 10, window_minutes: 5}
+R2:
+  title: SSH failures across distinct accounts
+  logsource: {product: linux, service: sshd}
+  tags: [attack.t1110.003]
+  detection: {threshold: 5, window_minutes: 10}
+R3:
+  title: Burst of SSH failures for nonexistent usernames
+  logsource: {product: linux, service: sshd}
+  tags: [attack.t1110]
+  detection: {threshold: 5, window_minutes: 5}
+R4:
+  title: Successful SSH login after repeated failures
+  logsource: {product: linux, service: sshd}
+  tags: [attack.t1078]
+  detection: {window_minutes: 10}
+R5:
+  title: Successful SSH login from a new source
+  logsource: {product: linux, service: sshd}
+  tags: [attack.t1078]
+  detection: {minimum_known_sources: 1}
