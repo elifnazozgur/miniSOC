@@ -40,9 +40,9 @@ class TestCLI(unittest.TestCase):
                 output = json.loads(result.stdout)
                 self.assertEqual(output["parsed"], 15)
                 self.assertEqual(output["ignored"], 1)
-                self.assertEqual([alert["rule"] for alert in output["alerts"]], ["R1", "R3"])
-                self.assertEqual(output["alerts"][1]["timestamp"], "2026-11-22T12:00:12+00:00")
+                self.assertEqual([alert["rule"] for alert in output["alerts"]], ["R1", "R5", "R4"])
+                self.assertEqual(output["alerts"][2]["timestamp"], "2026-11-22T12:00:12+00:00")
 
             with closing(sqlite3.connect(db)) as connection:
                 rows = connection.execute("SELECT rule FROM alerts ORDER BY rule").fetchall()
-            self.assertEqual(rows, [("R1",), ("R3",)])
+            self.assertEqual(rows, [("R1",), ("R4",), ("R5",)])
